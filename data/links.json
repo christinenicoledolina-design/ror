@@ -1,0 +1,20 @@
+[
+  {"component_id":1,"store_name":"Shopee","url":"https://shopee.ph","price":17500},
+  {"component_id":1,"store_name":"Lazada","url":"https://lazada.com.ph","price":18000},
+  {"component_id":1,"store_name":"PC Express","url":"https://pcx.com.ph","price":18200},
+  {"component_id":2,"store_name":"Shopee","url":"https://shopee.ph","price":24000},
+  {"component_id":2,"store_name":"Lazada","url":"https://lazada.com.ph","price":24720},
+  {"component_id":2,"store_name":"PC Express","url":"https://pcx.com.ph","price":25200},
+  {"component_id":3,"store_name":"Shopee","url":"https://shopee.ph","price":35000},
+  {"component_id":3,"store_name":"Lazada","url":"https://lazada.com.ph","price":36000},
+  {"component_id":3,"store_name":"PC Express","url":"https://pcx.com.ph","price":36500},
+  {"component_id":4,"store_name":"Shopee","url":"https://shopee.ph","price":16000},
+  {"component_id":4,"store_name":"Lazada","url":"https://lazada.com.ph","price":16500},
+  {"component_id":4,"store_name":"PC Express","url":"https://pcx.com.ph","price":16800},
+  {"component_id":6,"store_name":"Shopee","url":"https://shopee.ph","price":22000},
+  {"component_id":6,"store_name":"Lazada","url":"https://lazada.com.ph","price":22500},
+  {"component_id":6,"store_name":"PC Express","url":"https://pcx.com.ph","price":23000},
+  {"component_id":7,"store_name":"Shopee","url":"https://shopee.ph","price":36000},
+  {"component_id":7,"store_name":"Lazada","url":"https://lazada.com.ph","price":37000},
+  {"component_id":7,"store_name":"PC Express","url":"https://pcx.com.ph","price":37500}
+]

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="admin-panel-wrap">
+
+  <div class="admin-page-header">
+    <div class="admin-breadcrumb">ADMINISTRATION</div>
+    <h1 class="admin-page-title">ADMIN PANEL</h1>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" id="tab-overview" onclick="showTab('overview')">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Overview
+    </button>
+    <button class="admin-tab" id="tab-components" onclick="showTab('components')">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Components
+    </button>
+  </div>
+
+  <!-- Overview Tab -->
+  <div id="pane-overview" class="admin-pane">
+
+    <!-- Top 3 stat cards -->
+    <div class="admin-overview-cards">
+      <div class="admin-ov-card">
+        <div class="aoc-icon aoc-purple">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div class="aoc-label">COMPONENTS</div>
+        <div class="aoc-value">{{ stats.components }}</div>
+      </div>
+      <div class="admin-ov-card">
+        <div class="aoc-icon aoc-green">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div class="aoc-label">BUILDS CREATED</div>
+        <div class="aoc-value">{{ stats.builds }}</div>
+      </div>
+      <div class="admin-ov-card">
+        <div class="aoc-icon aoc-blue">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="aoc-label">BUILDERS</div>
+        <div class="aoc-value">{{ stats.users }}</div>
+      </div>
+    </div>
+
+    <!-- Components by category -->
+    <div class="admin-section-label">COMPONENTS BY CATEGORY</div>
+    <div class="admin-cat-grid">
+      {% set categories = [("CPU","cpu"),("MOTHERBOARD","motherboard"),("GPU","gpu"),("RAM","ram"),("STORAGE","storage"),("PSU","psu"),("COOLING","cooling"),("CASE","case")] %}
+      {% for label, cls in categories %}
+      <div class="admin-cat-card">
+        <div class="acc-label">{{ label }}</div>
+        <div class="acc-value">{{ stats.get('by_category', {}).get(label, 0) }}</div>
+        <div class="acc-bar"><div class="acc-bar-fill cat-{{ cls }}" style="width:60%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="admin-section-label">QUICK ACTIONS</div>
+    <div class="admin-quick-actions">
+      <button onclick="showTab('components'); document.getElementById('add-modal').classList.remove('hidden')" class="btn btn-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Component
+      </button>
+      <button onclick="showTab('components')" class="btn btn-ghost">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Manage Components
+      </button>
+    </div>
+
+  </div><!-- /pane-overview -->
+
+  <!-- Components Tab -->
+  <div id="pane-components" class="admin-pane" style="display:none;">
+
+    <div class="admin-comp-toolbar">
+      <button onclick="document.getElementById('add-modal').classList.remove('hidden')" class="btn btn-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Component
+      </button>
+      <div class="admin-comp-cats">
+        <button class="filter-pill active" onclick="filterAdminCat('ALL',this)">ALL</button>
+        {% for cat in ["CPU","MOTHERBOARD","GPU","RAM","STORAGE","PSU","COOLING","CASE"] %}
+        <button class="filter-pill" onclick="filterAdminCat('{{ cat }}',this)">{{ cat }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="admin-table-wrap">
+      <table class="admin-comp-table">
+        <thead>
+          <tr>
+            <th>IMAGE</th><th>NAME</th><th>BRAND</th><th>CATEGORY</th><th>PRICE</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in components %}
+          <tr data-cat="{{ c.category | upper }}">
+            <td><div class="act-img cat-{{ c.category | lower }}">{{ c.category | upper }}</div></td>
+            <td class="act-name">{{ c.name }}</td>
+            <td class="act-brand">{{ c.brand }}</td>
+            <td><span class="act-cat-badge cat-{{ c.category | lower }}">{{ c.category | upper }}</span></td>
+            <td class="act-price">&#8369;{{ '{:,.0f}'.format(c.price) }}</td>
+            <td class="act-actions">
+              <button onclick="openEditPanel({{ c.id }}, '{{ c.name|e }}', '{{ c.brand|e }}', '{{ c.category }}', {{ c.price }}, '{{ (c.specs or '')|e }}')" class="act-btn act-edit" title="Edit">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <form method="POST" action="{{ url_for('admin.delete_component', cid=c.id) }}" style="display:inline;" onsubmit="return confirm('Delete {{ c.name }}?')">
+                <button class="act-btn act-delete" title="Delete">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Inline edit panel -->
+    <div id="edit-panel" class="admin-edit-panel" style="display:none;">
+      <div class="aep-tabs">
+        <button class="aep-tab active">DETAILS</button>
+        <button class="aep-tab">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          SHOP LINKS
+        </button>
+        <button class="aep-close" onclick="document.getElementById('edit-panel').style.display='none'">✕</button>
+      </div>
+      <div class="aep-body">
+        <div class="aep-section-label">EDIT COMPONENT</div>
+        <form id="edit-form" method="POST" class="aep-form">
+          <div class="aep-row">
+            <div class="aep-field">
+              <label>NAME *</label>
+              <input id="ep-name" name="name" required class="aep-input"/>
+            </div>
+            <div class="aep-field">
+              <label>BRAND *</label>
+              <input id="ep-brand" name="brand" required class="aep-input"/>
+            </div>
+          </div>
+          <div class="aep-row">
+            <div class="aep-field">
+              <label>CATEGORY *</label>
+              <select id="ep-category" name="category" class="aep-input">
+                {% for cat in ["CPU","GPU","RAM","Storage","Motherboard","PSU","Cooling","Case"] %}
+                <option>{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="aep-field">
+              <label>PRICE (₱) *</label>
+              <input id="ep-price" name="price" type="number" required class="aep-input"/>
+            </div>
+          </div>
+          <div class="aep-field">
+            <label>SPECIFICATIONS</label>
+            <textarea id="ep-specs" name="specs" rows="2" class="aep-input aep-textarea"></textarea>
+          </div>
+          <div class="aep-btns">
+            <button type="submit" class="btn btn-primary">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Save Changes
+            </button>
+            <button type="button" onclick="document.getElementById('edit-panel').style.display='none'" class="btn btn-ghost">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div><!-- /pane-components -->
+
+</div><!-- /admin-panel-wrap -->
+
+<!-- Add Modal -->
+<div id="add-modal" class="admin-modal-bg hidden">
+  <div class="admin-modal">
+    <h2 class="admin-modal-title">Add Component</h2>
+    <form method="POST" action="{{ url_for('admin.add_component') }}" class="aep-form">
+      <div class="aep-row">
+        <div class="aep-field"><label>NAME *</label><input name="name" required class="aep-input"/></div>
+        <div class="aep-field"><label>BRAND *</label><input name="brand" required class="aep-input"/></div>
+      </div>
+      <div class="aep-row">
+        <div class="aep-field">
+          <label>CATEGORY *</label>
+          <select name="category" required class="aep-input">
+            {% for cat in ["CPU","GPU","RAM","Storage","Motherboard","PSU","Cooling","Case"] %}<option>{{ cat }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="aep-field"><label>PRICE (₱) *</label><input name="price" type="number" required class="aep-input"/></div>
+      </div>
+      <div class="aep-field"><label>SPECIFICATIONS</label><textarea name="specs" rows="2" class="aep-input aep-textarea"></textarea></div>
+      <div class="aep-btns">
+        <button type="submit" class="btn btn-primary">Add Component</button>
+        <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')" class="btn btn-ghost">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showTab(name) {
+  ['overview','components'].forEach(t => {
+    document.getElementById('pane-'+t).style.display = t===name ? '' : 'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+  });
+}
+function openEditPanel(id, name, brand, cat, price, specs) {
+  document.getElementById('ep-name').value  = name;
+  document.getElementById('ep-brand').value = brand;
+  document.getElementById('ep-category').value = cat;
+  document.getElementById('ep-price').value = price;
+  document.getElementById('ep-specs').value = specs;
+  document.getElementById('edit-form').action = '/admin/components/edit/'+id;
+  document.getElementById('edit-panel').style.display = '';
+}
+function filterAdminCat(cat, btn) {
+  document.querySelectorAll('.admin-comp-cats .filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.admin-comp-table tbody tr').forEach(row => {
+    row.style.display = (cat==='ALL' || row.dataset.cat===cat) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

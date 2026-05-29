@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Manage Components — Admin — BuildLab{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-black uppercase">Manage Components</h1>
+      <p class="text-gray-400 text-sm mt-1">{{ components|length }} components</p>
+    </div>
+    <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+      class="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors">
+      + Add Component
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <form method="GET" class="flex gap-3 mb-6 flex-wrap">
+    <input name="search" value="{{ search }}" placeholder="Search name…"
+      class="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 w-56"/>
+    <select name="category" class="h-10 px-3 rounded-xl border border-white/10 bg-[#1a1a2e] text-sm text-white focus:outline-none">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+        <option value="{{ cat }}" {% if cat == active_category %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="px-5 h-10 rounded-xl bg-primary/20 text-primary font-bold text-sm hover:bg-primary/30 transition-colors">Filter</button>
+  </form>
+
+  <!-- Table -->
+  <div class="rounded-2xl border border-white/10 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-white/10 bg-white/3">
+          <th class="px-5 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400">ID</th>
+          <th class="px-5 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Name</th>
+          <th class="px-5 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Brand</th>
+          <th class="px-5 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Category</th>
+          <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-widest text-gray-400">Price</th>
+          <th class="px-5 py-3 text-center text-xs font-bold uppercase tracking-widest text-gray-400">Links</th>
+          <th class="px-5 py-3 text-center text-xs font-bold uppercase tracking-widest text-gray-400">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-white/5">
+        {% for c in components %}
+        <tr class="hover:bg-white/3 transition-colors">
+          <td class="px-5 py-3 text-gray-500">{{ c.id }}</td>
+          <td class="px-5 py-3 font-semibold">{{ c.name }}</td>
+          <td class="px-5 py-3 text-gray-400">{{ c.brand }}</td>
+          <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-primary/15 text-primary">{{ c.category }}</span></td>
+          <td class="px-5 py-3 text-right font-black text-primary">₱{{ "{:,}".format(c.price) }}</td>
+          <td class="px-5 py-3 text-center">
+            <button onclick="openLinksModal({{ c.id }}, '{{ c.name | replace("'", "\\'") }}')"
+              class="px-3 py-1 rounded-lg bg-white/8 hover:bg-blue-500/20 text-blue-400 text-xs font-bold transition-colors">
+              {{ c.links | length }} link{% if c.links | length != 1 %}s{% endif %}
+            </button>
+          </td>
+          <td class="px-5 py-3 text-center flex justify-center gap-2">
+            <button onclick="editComponent({{ c.id }}, '{{ c.name | replace("'", "\\'") }}', '{{ c.brand }}', '{{ c.category }}', {{ c.price }}, '{{ c.specs or "" }}')"
+              class="px-3 py-1 rounded-lg bg-white/8 hover:bg-primary/20 text-xs font-bold transition-colors">Edit</button>
+            <form method="POST" action="{{ url_for('admin.delete_component', cid=c.id) }}"
+              onsubmit="return confirm('Delete {{ c.name }}?')">
+              <button class="px-3 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 text-xs font-bold transition-colors">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="px-5 py-12 text-center text-gray-500">No components found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <div class="bg-[#13131f] rounded-2xl border border-white/10 w-full max-w-md p-6">
+    <h2 class="text-lg font-black mb-4">Add Component</h2>
+    <form method="POST" action="{{ url_for('admin.add_component') }}" class="space-y-3">
+      <input name="name" placeholder="Name" required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <input name="brand" placeholder="Brand" required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <select name="category" required class="w-full h-10 px-3 rounded-xl border border-white/10 bg-[#1a1a2e] text-sm text-white focus:outline-none">
+        {% for cat in ["CPU","GPU","RAM","Storage","Motherboard","PSU","Cooling","Case"] %}
+          <option>{{ cat }}</option>
+        {% endfor %}
+      </select>
+      <input name="price" type="number" placeholder="Price (₱)" required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <textarea name="specs" placeholder="Specs (optional)" rows="2" class="w-full px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50 resize-none"></textarea>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors">Add</button>
+        <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+          class="px-5 py-2.5 rounded-xl border border-white/15 text-sm font-bold hover:border-white/30 transition-colors">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <div class="bg-[#13131f] rounded-2xl border border-white/10 w-full max-w-md p-6">
+    <h2 class="text-lg font-black mb-4">Edit Component</h2>
+    <form id="edit-form" method="POST" class="space-y-3">
+      <input id="edit-name"     name="name"  placeholder="Name"  required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <input id="edit-brand"    name="brand" placeholder="Brand" required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <select id="edit-category" name="category" class="w-full h-10 px-3 rounded-xl border border-white/10 bg-[#1a1a2e] text-sm text-white focus:outline-none">
+        {% for cat in ["CPU","GPU","RAM","Storage","Motherboard","PSU","Cooling","Case"] %}
+          <option>{{ cat }}</option>
+        {% endfor %}
+      </select>
+      <input id="edit-price"    name="price" type="number" placeholder="Price (₱)" required class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+      <textarea id="edit-specs" name="specs" rows="2" class="w-full px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50 resize-none"></textarea>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors">Save</button>
+        <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')"
+          class="px-5 py-2.5 rounded-xl border border-white/15 text-sm font-bold hover:border-white/30 transition-colors">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Links Modal -->
+<div id="links-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <div class="bg-[#13131f] rounded-2xl border border-white/10 w-full max-w-lg p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black">Store Links — <span id="links-modal-name" class="text-primary"></span></h2>
+      <button onclick="closeLinksModal()" class="text-gray-400 hover:text-white text-xl font-bold">&times;</button>
+    </div>
+
+    <!-- Existing links list -->
+    <div id="links-list" class="space-y-2 mb-5" style="max-height:240px;overflow-y:auto;">
+      <p class="text-gray-500 text-sm" id="links-empty">Loading…</p>
+    </div>
+
+    <!-- Add new link form -->
+    <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">
+      <p class="text-xs font-bold uppercase text-gray-400 tracking-widest mb-3">Add New Link</p>
+      <div class="space-y-2">
+        <input id="new-store-name" placeholder="Store name (e.g. Shopee, Lazada, PC Express)"
+          class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+        <input id="new-link-url" placeholder="URL (https://...)"
+          class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+        <input id="new-link-price" type="number" placeholder="Price at this store (₱)"
+          class="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-primary/50"/>
+        <button onclick="addLink()" class="w-full py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors">
+          + Add Link
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var _currentComponentId = null;
+
+function editComponent(id, name, brand, category, price, specs) {
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-brand').value = brand;
+  document.getElementById('edit-category').value = category;
+  document.getElementById('edit-price').value = price;
+  document.getElementById('edit-specs').value = specs;
+  document.getElementById('edit-form').action = `/admin/components/edit/${id}`;
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function openLinksModal(componentId, componentName) {
+  _currentComponentId = componentId;
+  document.getElementById('links-modal-name').textContent = componentName;
+  document.getElementById('links-modal').classList.remove('hidden');
+  loadLinks(componentId);
+}
+
+function closeLinksModal() {
+  document.getElementById('links-modal').classList.add('hidden');
+  _currentComponentId = null;
+}
+
+function loadLinks(componentId) {
+  const list = document.getElementById('links-list');
+  list.innerHTML = '<p class="text-gray-500 text-sm">Loading…</p>';
+  fetch(`/admin/components/${componentId}/links`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.links || data.links.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-sm">No links yet. Add one below.</p>';
+        return;
+      }
+      list.innerHTML = data.links.map(l => `
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/4 border border-white/8" id="link-row-${l.id}">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold">${l.store_name}</div>
+            <a href="${l.url}" target="_blank" class="text-xs text-blue-400 truncate block hover:underline" style="max-width:280px;">${l.url}</a>
+            <div class="text-xs text-green-400 font-bold mt-0.5">₱${Number(l.price).toLocaleString()}</div>
+          </div>
+          <button onclick="deleteLink(${l.id})" class="px-3 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 text-xs font-bold transition-colors flex-shrink-0">
+            Delete
+          </button>
+        </div>
+      `).join('');
+    })
+    .catch(() => { list.innerHTML = '<p class="text-red-400 text-sm">Failed to load links.</p>'; });
+}
+
+function addLink() {
+  const store = document.getElementById('new-store-name').value.trim();
+  const url   = document.getElementById('new-link-url').value.trim();
+  const price = document.getElementById('new-link-price').value;
+  if (!store || !url || !price) { alert('Please fill in all fields.'); return; }
+  fetch(`/admin/components/${_currentComponentId}/links/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_name: store, url: url, price: parseFloat(price) })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { alert(data.error); return; }
+      document.getElementById('new-store-name').value = '';
+      document.getElementById('new-link-url').value   = '';
+      document.getElementById('new-link-price').value = '';
+      loadLinks(_currentComponentId);
+    })
+    .catch(() => alert('Failed to add link.'));
+}
+
+function deleteLink(linkId) {
+  if (!confirm('Delete this link?')) return;
+  fetch(`/admin/links/${linkId}/delete`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { alert(data.error); return; }
+      document.getElementById('link-row-' + linkId)?.remove();
+      if (!document.querySelector('#links-list [id^="link-row-"]')) {
+        document.getElementById('links-list').innerHTML = '<p class="text-gray-500 text-sm">No links yet. Add one below.</p>';
+      }
+    })
+    .catch(() => alert('Delete failed.'));
+}
+
+// Close modals on backdrop click
+['add-modal','edit-modal','links-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
+});
+</script>
+{% endblock %}

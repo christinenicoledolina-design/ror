@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Parts Catalog{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Parts Catalog</h1>
+  <form method="GET" class="search-form">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search components..." class="search-input">
+    <button type="submit" class="btn btn-primary">Search</button>
+  </form>
+</div>
+
+<div class="filter-bar">
+  <a href="{{ url_for('components.parts') }}" class="filter-pill {{ 'active' if not active_category }}">All</a>
+  {% for cat in categories %}
+    <a href="{{ url_for('components.parts', category=cat) }}" class="filter-pill {{ 'active' if active_category == cat }}">{{ cat }}</a>
+  {% endfor %}
+</div>
+
+<form method="GET" class="price-filter">
+  <span class="filter-label">Price Range</span>
+  <div class="price-inputs">
+    <span class="peso-sign">&#8369;</span>
+    <input type="number" name="min_price" placeholder="Min" class="price-input"
+           value="{{ request.args.get('min_price', '') }}">
+    <span class="dash">&mdash;</span>
+    <span class="peso-sign">&#8369;</span>
+    <input type="number" name="max_price" placeholder="Max" class="price-input"
+           value="{{ request.args.get('max_price', '') }}">
+    <button type="submit" class="btn btn-ghost">Filter</button>
+    {% if request.args.get('min_price') or request.args.get('max_price') %}
+      <a href="{{ url_for('components.parts', category=active_category, search=search) }}" class="btn btn-ghost">Clear</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Compare bar (hidden until 1 item selected) -->
+<div id="compare-bar" style="display:none;">
+  <div class="compare-bar-inner">
+    <div class="compare-slots">
+      <div class="compare-slot" id="cslot-0">
+        <span class="compare-slot-empty">Select a component to compare</span>
+      </div>
+      <div class="compare-vs">VS</div>
+      <div class="compare-slot" id="cslot-1">
+        <span class="compare-slot-empty">Select a second component</span>
+      </div>
+    </div>
+    <div class="compare-actions">
+      <button onclick="runCompare()" id="compare-btn" class="btn btn-primary" disabled>Compare</button>
+      <button onclick="clearCompare()" class="btn btn-ghost">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="parts-grid" id="parts-grid">
+  {% for component in components %}
+  <div class="part-card" id="pcard-{{ component.id }}"
+       data-id="{{ component.id }}"
+       data-name="{{ component.name }}"
+       data-brand="{{ component.brand }}"
+       data-cat="{{ component.category }}"
+       data-price="{{ component.price }}"
+       data-specs="{{ component.specs or '' }}">
+    <div class="part-header cat-{{ component.category | lower | replace(' ', '-') }}">
+      <span>{{ component.category }}</span>
+    </div>
+    <div class="part-body">
+      <div class="part-cat-label">{{ component.category }}</div>
+      <div class="part-name">{{ component.name }}</div>
+      <div class="part-brand">{{ component.brand }}</div>
+      <div class="part-price">&#8369;{{ '{:,.0f}'.format(component.price) }}</div>
+      {% if component.specs %}
+        <div class="part-specs">{{ component.specs }}</div>
+      {% endif %}
+      <div class="part-card-actions">
+        <button class="btn btn-ghost btn-sm pc-view-btn" onclick="event.stopPropagation(); openModal({{ component.id }}, '{{ component.name }}', '{{ component.brand }}', '{{ component.category }}', {{ component.price }}, '{{ component.specs or '' }}')">View</button>
+        <button class="btn btn-ghost btn-sm pc-compare-btn" id="cbtn-{{ component.id }}" onclick="event.stopPropagation(); toggleCompare({{ component.id }})">+ Compare</button>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>No components match your filters.</p>
+    <a href="{{ url_for('components.parts') }}" class="btn btn-ghost">Clear filters</a>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div id="modal-inner"></div>
+  </div>
+</div>
+
+<!-- Compare Modal -->
+<div class="modal-overlay" id="compare-modal" onclick="closeCompareModal()">
+  <div class="modal-box" style="max-width:760px;width:100%;" onclick="event.stopPropagation()">
+    <div id="compare-modal-inner" style="padding:24px;"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Compare state ───────────────────────────────────── */
+var compareItems = [null, null];
+
+function toggleCompare(id) {
+  const card = document.getElementById('pcard-' + id);
+  const d = card.dataset;
+  const item = { id: +d.id, name: d.name, brand: d.brand, cat: d.cat, price: +d.price, specs: d.specs };
+
+  // Already selected? Remove it
+  const idx = compareItems.findIndex(i => i && i.id === id);
+  if (idx !== -1) {
+    compareItems[idx] = null;
+    card.classList.remove('compare-selected');
+    document.getElementById('cbtn-' + id).textContent = '+ Compare';
+    renderCompareBar();
+    return;
+  }
+
+  // Find empty slot
+  const slot = compareItems.indexOf(null);
+  if (slot === -1) {
+    alert('You can only compare 2 components at a time. Remove one first.');
+    return;
+  }
+  compareItems[slot] = item;
+  card.classList.add('compare-selected');
+  document.getElementById('cbtn-' + id).textContent = '✓ Selected';
+  renderCompareBar();
+}
+
+function renderCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const hasAny = compareItems.some(Boolean);
+  bar.style.display = hasAny ? 'block' : 'none';
+
+  const catFg = {CPU:'#a78bfa',Motherboard:'#78bffa',GPU:'#60a5fa',RAM:'#6ee7b7',Storage:'#fbbf24',PSU:'#f472b6',Cooling:'#67e8f9',Case:'#c4b5fd'};
+
+  [0,1].forEach(i => {
+    const slot = document.getElementById('cslot-' + i);
+    const item = compareItems[i];
+    if (item) {
+      slot.innerHTML = `
+        <div class="cslot-filled">
+          <span class="cslot-cat" style="color:${catFg[item.cat]||'#a78bfa'}">${item.cat}</span>
+          <span class="cslot-name">${item.name}</span>
+          <span class="cslot-price">&#8369;${Number(item.price).toLocaleString()}</span>
+          <button onclick="toggleCompare(${item.id})" class="cslot-remove">&times;</button>
+        </div>`;
+    } else {
+      slot.innerHTML = `<span class="compare-slot-empty">${i===0?'Select a component to compare':'Select a second component'}</span>`;
+    }
+  });
+
+  document.getElementById('compare-btn').disabled = compareItems.filter(Boolean).length < 2;
+}
+
+function clearCompare() {
+  compareItems.forEach(item => {
+    if (item) {
+      document.getElementById('pcard-' + item.id)?.classList.remove('compare-selected');
+      const btn = document.getElementById('cbtn-' + item.id);
+      if (btn) btn.textContent = '+ Compare';
+    }
+  });
+  compareItems = [null, null];
+  renderCompareBar();
+}
+
+async function runCompare() {
+  const [a, b] = compareItems;
+  if (!a || !b) return;
+
+  const catBg = {CPU:'#1e0a3c',Motherboard:'#0a1e3c',GPU:'#0a1040',RAM:'#0a2e1a',Storage:'#2e1a0a',PSU:'#2e0a1a',Cooling:'#0a2030',Case:'#1a1a2e'};
+  const catFg = {CPU:'#a78bfa',Motherboard:'#78bffa',GPU:'#60a5fa',RAM:'#6ee7b7',Storage:'#fbbf24',PSU:'#f472b6',Cooling:'#67e8f9',Case:'#c4b5fd'};
+
+  // Fetch links for both
+  const [linksA, linksB] = await Promise.all([
+    fetch(`/api/components/${a.id}/links`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/components/${b.id}/links`).then(r=>r.json()).catch(()=>[])
+  ]);
+
+  const cheaper = a.price < b.price ? 'a' : b.price < a.price ? 'b' : 'tie';
+
+  function renderCol(item, links, side) {
+    const isCheaper = cheaper === side;
+    const storeColors = {Shopee:'#d14900',Lazada:'#1a4fba','PC Express':'#0a6640'};
+    return `
+      <div class="cmp-col ${isCheaper ? 'cmp-col-winner' : ''}">
+        ${isCheaper ? '<div class="cmp-winner-badge">Lower Price</div>' : ''}
+        <div class="cmp-col-header" style="background:${catBg[item.cat]||'#1a1a2e'}">
+          <div class="cmp-col-cat" style="color:${catFg[item.cat]||'#a78bfa'}">${item.cat}</div>
+          <div class="cmp-col-name">${item.name}</div>
+          <div class="cmp-col-brand">${item.brand}</div>
+        </div>
+        <div class="cmp-col-body">
+          <div class="cmp-row">
+            <span class="cmp-label">Price</span>
+            <span class="cmp-val cmp-price" style="color:${catFg[item.cat]||'#a78bfa'}">&#8369;${Number(item.price).toLocaleString()}</span>
+          </div>
+          ${item.specs ? `
+          <div class="cmp-row">
+            <span class="cmp-label">Specs</span>
+            <span class="cmp-val">${item.specs}</span>
+          </div>` : ''}
+          <div class="cmp-links-title">Where to Buy</div>
+          ${links.length
+            ? links.map(l=>`<a href="${l.url}" target="_blank" class="cmp-link" style="background:${storeColors[l.store_name]||'#333'}"><span>${l.store_name}</span><span>&#8369;${Number(l.price).toLocaleString()}</span></a>`).join('')
+            : '<p class="cmp-no-links">No store links available.</p>'
+          }
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('compare-modal-inner').innerHTML = `
+    <div class="cmp-header">
+      <h2 class="cmp-title">Component Comparison</h2>
+      <button onclick="closeCompareModal()" class="cmp-close">&times;</button>
+    </div>
+    <div class="cmp-grid">
+      ${renderCol(a, linksA, 'a')}
+      <div class="cmp-vs-divider">VS</div>
+      ${renderCol(b, linksB, 'b')}
+    </div>
+    ${cheaper !== 'tie'
+      ? `<div class="cmp-verdict">
+           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+           <strong>${cheaper==='a'?a.name:b.name}</strong> saves you &#8369;${Math.abs(a.price-b.price).toLocaleString()}
+         </div>`
+      : `<div class="cmp-verdict">Both components are the same price.</div>`
+    }
+  `;
+  document.getElementById('compare-modal').style.display = 'flex';
+}
+
+function closeCompareModal() { document.getElementById('compare-modal').style.display = 'none'; }
+
+/* ── Detail modal ────────────────────────────────────── */
+function openModal(id, name, brand, cat, price, specs) {
+  const catBg = {CPU:'#1e0a3c',Motherboard:'#0a1e3c',GPU:'#0a1040',RAM:'#0a2e1a',Storage:'#2e1a0a',PSU:'#2e0a1a',Cooling:'#0a2030',Case:'#1a1a2e'};
+  const catFg = {CPU:'#a78bfa',Motherboard:'#78bffa',GPU:'#60a5fa',RAM:'#6ee7b7',Storage:'#fbbf24',PSU:'#f472b6',Cooling:'#67e8f9',Case:'#c4b5fd'};
+  document.getElementById('modal-inner').innerHTML = `
+    <div style="height:160px;background:${catBg[cat]||'#1a1a2e'};display:flex;align-items:center;justify-content:center;position:relative;">
+      <span style="font-size:60px;font-weight:900;color:${catFg[cat]||'#a78bfa'};opacity:.75;">${cat}</span>
+      <button onclick="closeModal()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.3);border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;">&times;</button>
+    </div>
+    <div style="padding:18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:${catFg[cat]||'#a78bfa'};margin-bottom:4px;">${cat}</div>
+      <div style="font-size:19px;font-weight:900;margin-bottom:2px;">${name}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:14px;">${brand} &nbsp;·&nbsp; <span style="color:${catFg[cat]||'#a78bfa'};font-weight:900;">&#8369;${price.toLocaleString()}</span></div>
+      ${specs ? `<p style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px;">Specs</p><p style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:16px;">${specs}</p>` : ''}
+      <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:8px;">Where to Buy</p>
+      <div id="modal-links">Loading...</div>
+    </div>
+  `;
+  document.getElementById('modal').style.display = 'flex';
+  fetch(`/api/components/${id}/links`)
+    .then(r => r.json())
+    .then(links => {
+      const storeColors = {Shopee:'#d14900',Lazada:'#1a4fba','PC Express':'#0a6640'};
+      document.getElementById('modal-links').innerHTML = links.length
+        ? links.map(l => `<a href="${l.url}" target="_blank" style="display:flex;justify-content:space-between;padding:11px 14px;border-radius:8px;margin-bottom:6px;background:${storeColors[l.store_name]||'#333'};color:#fff;font-weight:700;font-size:14px;text-decoration:none;"><span>${l.store_name}</span><span>&#8369;${l.price.toLocaleString()}</span></a>`).join('')
+        : '<p style="color:rgba(255,255,255,.4);font-style:italic;font-size:13px;">No store links available.</p>';
+    });
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+</script>
+{% endblock %}

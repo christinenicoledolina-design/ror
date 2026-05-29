@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}PC Builder{% endblock %}
+
+{% block content %}
+<div class="builder-layout">
+
+  <!-- Left: component browser -->
+  <div class="builder-left">
+    <div class="bl-header">
+      <span class="bl-title">Components</span>
+      <span class="bl-count" id="comp-count">{{ components|length }} items</span>
+    </div>
+
+    <div class="bl-search-wrap">
+      <svg class="bl-search-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="component-search" placeholder="Search..." oninput="filterComponents(this.value)" class="bl-search-input">
+    </div>
+
+    <div class="cat-pills" id="cat-pills">
+      <button class="filter-pill active" onclick="setCat('ALL',this)">ALL</button>
+      {% for cat in categories %}
+        <button class="filter-pill" onclick="setCat('{{ cat }}',this)">{{ cat | upper }}</button>
+      {% endfor %}
+    </div>
+
+    <div id="component-list" class="component-list">
+      {% for c in components %}
+      <div class="component-card" data-cat="{{ c.category }}" data-name="{{ c.name }}" data-id="{{ c.id }}"
+           draggable="true" ondragstart="onDragStart(event,{{ c.id }},'{{ c.category }}')">
+        <div class="cc-check-badge" id="check-{{ c.id }}">
+          <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="cc-body">
+          <div class="cc-row">
+            <div class="cc-name">{{ c.name }}</div>
+            <div class="cc-price">&#8369;{{ '{:,.0f}'.format(c.price) }}</div>
+          </div>
+          <div class="cc-brand">{{ c.brand }}</div>
+          <button class="btn btn-primary btn-block cc-add-btn" id="addbtn-{{ c.id }}" onclick="addToSlot({{ c.id }}, '{{ c.name }}', '{{ c.brand }}', '{{ c.category }}', {{ c.price }})">
+            + Add to Build
+          </button>
+          {% set links = c.links if c.links else [] %}
+          {% if links %}
+          <div class="cc-store-wrap">
+            <select class="cc-store-select" onchange="if(this.value) window.open(this.value,'_blank'); this.value=''">
+              <option value="">Where to buy</option>
+              {% for link in links %}
+              <option value="{{ link.url }}">{{ link.store_name }} — &#8369;{{ '{:,.0f}'.format(link.price) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% else %}
+          <div class="cc-store-wrap">
+            <select class="cc-store-select" disabled>
+              <option>Where to buy</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right: build slots -->
+  <div class="builder-right">
+    <div class="build-topbar">
+      <div>
+        <div class="topbar-label">Build Name</div>
+        <h2 id="build-name" contenteditable="true">My Build</h2>
+      </div>
+      <div class="topbar-actions">
+        <button onclick="checkCompat()" class="btn btn-ghost">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Check
+        </button>
+        <button onclick="shareBuild()" class="btn btn-ghost">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+        <button onclick="saveBuild()" class="btn btn-primary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span class="topbar-label">Progress <span id="prog-label" style="color:var(--primary-l);margin-left:6px;">0/8</span></span>
+        <span id="build-total" class="total-price">&#8369;0</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="template-bar">
+      <span class="topbar-label">Quick Build</span>
+      <button onclick="loadTemplate('budget')" class="btn btn-ghost">Budget</button>
+      <button onclick="loadTemplate('mid')" class="btn btn-ghost">Mid-Range</button>
+      <button onclick="loadTemplate('gaming')" class="btn btn-ghost">Gaming</button>
+    </div>
+
+    <div id="compat-result" style="display:none;" class="compat-banner"></div>
+
+    <div id="slots" class="slots-list">
+      {% for cat in ["CPU","Motherboard","GPU","RAM","Storage","PSU","Cooling","Case"] %}
+      <div class="slot" id="slot-{{ cat }}" data-cat="{{ cat }}"
+           ondragover="event.preventDefault(); onDragOver(event,'{{ cat }}')"
+           ondragleave="onDragLeave(event)"
+           ondrop="onDrop(event,'{{ cat }}')"
+           onclick="scrollToCategory('{{ cat }}')">
+        <div class="slot-icon cat-{{ cat | lower }}">
+          <span style="font-size:10px;font-weight:800;letter-spacing:.05em;">{{ cat[:3] | upper }}</span>
+        </div>
+        <div class="slot-info">
+          <div class="slot-cat">{{ cat | upper }}</div>
+          <div class="slot-empty-text">Click to browse, or drag a card here</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function shareBuild() {
+  const name = document.getElementById('build-name')?.textContent.trim() || 'My Build';
+  const parts = Object.values(selectedParts);
+  if (!parts.length) { alert('Add some parts first.'); return; }
+  const text = name + '\n' + parts.map(p => p.name + ' — ₱' + p.price.toLocaleString()).join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => alert('Build copied to clipboard!'));
+  } else {
+    alert(text);
+  }
+}
+function scrollToCategory(cat) {
+  // Find the exact pill for this category
+  const pill = Array.from(document.querySelectorAll('.cat-pills .filter-pill')).find(b => b.textContent.trim() === cat.toUpperCase());
+  if (pill) setCat(cat, pill);
+  else setCat('ALL', document.querySelector('.cat-pills .filter-pill'));
+}
+
+// Patch addToSlot to update card UI
+const _origAddToSlot = addToSlot;
+window.addToSlot = function(id, name, brand, cat, price) {
+  _origAddToSlot(id, name, brand, cat, price);
+  refreshCardStates();
+};
+
+function refreshCardStates() {
+  document.querySelectorAll('.component-card').forEach(card => {
+    const id = parseInt(card.dataset.id);
+    const cat = card.dataset.cat;
+    const isSelected = selectedParts[cat] && selectedParts[cat].id === id;
+    const checkEl = document.getElementById('check-' + id);
+    const btnEl   = document.getElementById('addbtn-' + id);
+    if (checkEl) checkEl.classList.toggle('visible', !!isSelected);
+    if (btnEl) {
+      if (isSelected) {
+        btnEl.textContent = '✓ Added to Build';
+        btnEl.style.background = 'var(--green)';
+        btnEl.style.color = '#fff';
+      } else {
+        btnEl.textContent = '+ Add to Build';
+        btnEl.style.background = '';
+        btnEl.style.color = '';
+      }
+    }
+  });
+}
+
+// Also refresh when slots change (e.g. remove)
+const _slotObserver = new MutationObserver(() => refreshCardStates());
+document.addEventListener('DOMContentLoaded', () => {
+  const slotsEl = document.getElementById('slots');
+  if (slotsEl) _slotObserver.observe(slotsEl, { childList: true, subtree: true });
+});
+</script>
+{% endblock %}
